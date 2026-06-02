@@ -444,7 +444,7 @@ class PMap(Generic[KT, VT_co]):
             new_list = new_size * [None]
             buckets = self._buckets_evolver.persistent()
             for k, v in chain.from_iterable(x for x in buckets if x):
-                index = hash(k) % new_size
+                index = hash(k) % len(self._buckets_evolver)
                 if new_list[index]:
                     new_list[index].append((k, v))
                 else:

@@ -120,8 +120,7 @@ def _update_structure(structure, kvs, path, command):
     from pyrsistent._pmap import pmap
     e = structure.evolver()
     if not path and command is discard:
-        # Do this in reverse to avoid index problems with vectors. See #92.
-        for k, v in reversed(kvs):
+        for k, v in kvs:
             discard(e, k)
     else:
         for k, v in kvs:
