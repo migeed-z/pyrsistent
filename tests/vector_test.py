@@ -932,3 +932,41 @@ def test_iterable(pvector):
     """
 
     assert pvector(iter("a")) == pvector(iter("a"))
+
+
+def test_map_indexed_small():
+    v = python_pvector([10, 20, 30])
+    result = v.map_indexed(lambda i, e: (i, e))
+    assert result == python_pvector([(0, 10), (1, 20), (2, 30)])
+
+
+def test_map_indexed_multiply_by_index():
+    v = python_pvector([1, 1, 1, 1, 1])
+    result = v.map_indexed(lambda i, e: i * e)
+    assert result == python_pvector([0, 1, 2, 3, 4])
+
+
+def test_map_indexed_empty():
+    v = python_pvector([])
+    result = v.map_indexed(lambda i, e: (i, e))
+    assert result == python_pvector([])
+
+
+def test_map_indexed_large():
+    v = python_pvector(range(100))
+    result = v.map_indexed(lambda i, e: i)
+    expected = python_pvector(range(100))
+    assert result == expected
+
+
+def test_map_indexed_tail_offset():
+    v = python_pvector(range(50))
+    result = v.map_indexed(lambda i, e: i * 100 + e)
+    assert result[40] == 40 * 100 + 40
+    assert result[49] == 49 * 100 + 49
+
+
+def test_map_indexed_preserves_length():
+    v = python_pvector(range(200))
+    result = v.map_indexed(lambda i, e: e * 2)
+    assert len(result) == 200

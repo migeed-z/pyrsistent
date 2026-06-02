@@ -317,6 +317,31 @@ class PMap(Generic[KT, VT_co]):
         except KeyError:
             return self
 
+    def filter(self, pred):
+        """Return a new PMap containing only entries where pred(key, value) is True."""
+        new_buckets = self._buckets.evolver()
+        num_non_empty = 0
+        for i, bucket in enumerate(self._buckets):
+            if bucket:
+                new_bucket = [(k, v) for k, v in bucket if pred(k, v)]
+                if new_bucket:
+                    new_buckets[i] = new_bucket
+                    num_non_empty += 1
+                else:
+                    new_buckets[i] = None
+        return PMap(num_non_empty, new_buckets.persistent())
+
+    def split(self, pred):
+        """Split into two PMaps: (matching, non_matching) based on pred(key, value)."""
+        match_e = self.evolver()
+        non_match_e = self.evolver()
+        for k, v in self.iteritems():
+            if pred(k, v):
+                del non_match_e[k]
+            else:
+                del match_e[k]
+        return match_e.persistent(), non_match_e.persistent()
+
     def update(self, *maps):
         """
         Return a new PMap with the items in Mappings inserted. If the same key is present in multiple

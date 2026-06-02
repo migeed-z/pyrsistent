@@ -549,3 +549,65 @@ def test_pmap_removal_with_broken_classes_deriving_from_namedtuple():
     assert BrokenPerson('X') not in s
     assert BrokenItem('X') in s
     assert len(s) == 1
+
+
+def test_filter_even_values():
+    m = pmap({10: 1, 20: 2, 30: 3, 40: 4})
+    filtered = m.filter(lambda k, v: v % 2 == 0)
+    assert filtered == pmap({20: 2, 40: 4})
+
+def test_filter_all():
+    m = pmap({0: 'x', 1: 'y', 2: 'z'})
+    filtered = m.filter(lambda k, v: True)
+    assert filtered == m
+
+def test_filter_none():
+    m = pmap({0: 'x', 1: 'y'})
+    filtered = m.filter(lambda k, v: False)
+    assert filtered == pmap()
+
+def test_filter_empty():
+    m = pmap()
+    filtered = m.filter(lambda k, v: True)
+    assert filtered == pmap()
+
+def test_filter_by_key():
+    m = pmap({1: 10, 2: 20, 3: 30, 4: 40, 5: 50})
+    filtered = m.filter(lambda k, v: k <= 3)
+    assert filtered == pmap({1: 10, 2: 20, 3: 30})
+
+def test_filter_many_elements():
+    m = pmap({i: i * 10 for i in range(200)}, pre_size=16)
+    filtered = m.filter(lambda k, v: k % 5 == 0)
+    assert len(filtered) == 40
+    assert filtered[0] == 0
+    assert filtered[50] == 500
+    assert 1 not in filtered
+
+def test_split_basic():
+    m = pmap({10: 1, 20: 2, 30: 3, 40: 4})
+    matching, non_matching = m.split(lambda k, v: v > 2)
+    assert matching == pmap({30: 3, 40: 4})
+    assert non_matching == pmap({10: 1, 20: 2})
+
+def test_split_all_match():
+    m = pmap({0: 'x', 1: 'y'})
+    matching, non_matching = m.split(lambda k, v: True)
+    assert matching == m
+    assert non_matching == pmap()
+
+def test_split_none_match():
+    m = pmap({0: 'x', 1: 'y'})
+    matching, non_matching = m.split(lambda k, v: False)
+    assert matching == pmap()
+    assert non_matching == m
+
+def test_split_preserves_all_entries():
+    m = pmap({i: i for i in range(100)})
+    matching, non_matching = m.split(lambda k, v: k % 3 == 0)
+    assert len(matching) + len(non_matching) == 100
+    for k, v in m.items():
+        if k % 3 == 0:
+            assert k in matching
+        else:
+            assert k in non_matching

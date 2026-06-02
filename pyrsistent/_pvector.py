@@ -414,6 +414,37 @@ class PythonPVector(object):
         l.remove(value)
         return _EMPTY_PVECTOR.extend(l)
 
+    def map_indexed(self, f):
+        """Transform each element by calling f(index, element).
+
+        Returns a new PVector where element i is f(i, self[i]).
+        Operates on the internal trie structure with structural sharing.
+        """
+        new_root = self._root
+        if self._root:
+            new_root = self._do_map_indexed_node(self._root, self._shift, 0, f)
+
+        tail_offset = self._count - len(self._tail)
+        new_tail = [f(tail_offset + i, e) for i, e in enumerate(self._tail)]
+
+        if self._root:
+            return PythonPVector(self._count, self._shift, new_root, self._tail)
+
+        return PythonPVector(self._count, self._shift, new_root, new_tail)
+
+    def _do_map_indexed_node(self, node, shift, base_index, f):
+        new_node = list(node)
+        if shift == 0:
+            for i in range(len(new_node)):
+                new_node[i] = f(base_index + i, new_node[i])
+        else:
+            child_size = 1 << shift
+            for i in range(len(new_node)):
+                if new_node[i] is not None:
+                    new_node[i] = self._do_map_indexed_node(
+                        new_node[i], shift - SHIFT, base_index + i * child_size, f)
+        return new_node
+
 class PVector(Generic[T_co],metaclass=ABCMeta):
     """
     Persistent vector implementation. Meant as a replacement for the cases where you would normally
