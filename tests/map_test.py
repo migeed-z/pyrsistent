@@ -521,6 +521,97 @@ def test_iterable():
     assert pmap(iter([("a", "b")])) == pmap([("a", "b")])
 
 
+def test_transform_keys_identity():
+    mp = pmap({'a': 1, 'b': 2, 'c': 3})
+    result = mp.transform_keys(lambda k: k)
+    assert result == mp
+
+
+def test_transform_keys_uppercase():
+    mp = pmap({'hello': 1, 'world': 2})
+    result = mp.transform_keys(lambda k: k.upper())
+    assert result['HELLO'] == 1
+    assert result['WORLD'] == 2
+    assert len(result) == 2
+
+
+def test_transform_keys_prefix():
+    mp = pmap({'x': 10, 'y': 20, 'z': 30})
+    result = mp.transform_keys(lambda k: 'key_' + k)
+    assert result['key_x'] == 10
+    assert result['key_y'] == 20
+    assert result['key_z'] == 30
+    assert len(result) == 3
+
+
+def test_transform_keys_numeric():
+    mp = pmap({1: 'a', 2: 'b', 3: 'c'})
+    result = mp.transform_keys(lambda k: k * 10)
+    assert result[10] == 'a'
+    assert result[20] == 'b'
+    assert result[30] == 'c'
+
+
+def test_transform_keys_collision_len():
+    mp = pmap({'a': 1, 'A': 2, 'b': 3, 'B': 4})
+    result = mp.transform_keys(lambda k: k.lower())
+    assert len(result) == 2
+
+
+def test_transform_keys_collision_value():
+    # Use integer keys (deterministic hash values) to test collision handling.
+    # With three keys that all map to the same new key via k % 100,
+    # the last encountered value (in iteration order) should win.
+    mp = pmap({0: 'zero', 100: 'hundred', 200: 'two_hundred'})
+    result = mp.transform_keys(lambda k: k % 100)
+    assert len(result) == 1
+    # Determine the expected value by checking what the last iterated value is
+    expected = None
+    for k, v in mp.iteritems():
+        expected = v
+    assert result[0] == expected
+
+
+def test_transform_keys_preserves_values():
+    mp = pmap({'a': [1, 2], 'b': [3, 4]})
+    result = mp.transform_keys(lambda k: k)
+    assert result['a'] == [1, 2]
+    assert result['b'] == [3, 4]
+
+
+def test_transform_keys_empty():
+    mp = pmap()
+    result = mp.transform_keys(lambda k: k)
+    assert result == pmap()
+
+
+def test_zip_with_basic():
+    m1 = pmap({'a': 1, 'b': 2, 'c': 3})
+    m2 = pmap({'b': 20, 'c': 30, 'd': 40})
+    result = m1.zip_with(m2, lambda x, y: x + y)
+    assert result == pmap({'b': 22, 'c': 33})
+
+def test_zip_with_no_overlap():
+    m1 = pmap({'a': 1})
+    m2 = pmap({'b': 2})
+    result = m1.zip_with(m2, lambda x, y: x + y)
+    assert result == pmap()
+
+def test_zip_with_full_overlap():
+    m1 = pmap({'a': 1, 'b': 2})
+    m2 = pmap({'a': 10, 'b': 20})
+    result = m1.zip_with(m2, lambda x, y: x * y)
+    assert result == pmap({'a': 10, 'b': 40})
+
+def test_zip_with_excludes_self_only():
+    m1 = pmap({'a': 1, 'b': 2, 'c': 3})
+    m2 = pmap({'b': 20})
+    result = m1.zip_with(m2, lambda x, y: x + y)
+    assert len(result) == 1
+    assert 'a' not in result
+    assert 'c' not in result
+
+
 class BrokenPerson(namedtuple('Person', 'name')):
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.name == other.name

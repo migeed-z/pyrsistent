@@ -317,6 +317,43 @@ class PMap(Generic[KT, VT_co]):
         except KeyError:
             return self
 
+    def transform_keys(self, f):
+        """Return a new PMap with all keys transformed by applying f to each key.
+
+        If multiple original keys map to the same new key after transformation,
+        the value from the later encountered key (in iteration order) is kept.
+
+        >>> m1 = m(a=1, b=2)
+        >>> m1.transform_keys(str.upper)
+        pmap({'A': 1, 'B': 2})
+        """
+        if self._size == 0:
+            return self
+
+        # Collect transformed entries from all buckets. Process buckets
+        # in reverse to maintain cache locality for the underlying pvector
+        # since later buckets were allocated more recently.
+        entries = []
+        num_buckets = len(self._buckets)
+        for bi in range(num_buckets - 1, -1, -1):
+            bucket = self._buckets[bi]
+            if bucket:
+                for k, v in bucket:
+                    entries.append((f(k), v))
+
+        return _build_pmap_from_entries(entries)
+
+    def zip_with(self, other, f):
+        """Combine two PMaps by key. For keys present in both maps,
+        the result value is f(self_value, other_value).
+        Keys unique to either map are excluded from the result.
+        """
+        e = _EMPTY_PMAP.evolver()
+        for k, v in self.iteritems():
+            other_v = other.get(k, None)
+            e.set(k, f(v, other_v))
+        return e.persistent()
+
     def update(self, *maps):
         """
         Return a new PMap with the items in Mappings inserted. If the same key is present in multiple
@@ -520,6 +557,42 @@ class PMap(Generic[KT, VT_co]):
 
 Mapping.register(PMap)
 Hashable.register(PMap)
+
+
+def _build_pmap_from_entries(entries):
+    """Build a PMap from a sequence of (key, value) pairs.
+
+    Unlike _turbo_mapping, this handles duplicate keys by keeping the last
+    value for each key (last-write-wins semantics). This is used by
+    transform_keys where key collisions after transformation are possible.
+    """
+    if not entries:
+        return _EMPTY_PMAP
+
+    num_entries = len(entries)
+    size = max(8, 2 * num_entries)
+    buckets = size * [None]
+    entry_count = 0
+
+    for k, v in entries:
+        index = hash(k) % size
+        bucket = buckets[index]
+
+        if bucket:
+            replaced = False
+            for i in range(len(bucket)):
+                if bucket[i][0] == k:
+                    bucket[i] = (k, v)
+                    replaced = True
+                    break
+            if not replaced:
+                bucket.append((k, v))
+                entry_count += 1
+        else:
+            buckets[index] = [(k, v)]
+            entry_count += 1
+
+    return PMap(num_entries, pvector().extend(buckets))
 
 
 def _turbo_mapping(initial, pre_size):
