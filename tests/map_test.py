@@ -521,6 +521,50 @@ def test_iterable():
     assert pmap(iter([("a", "b")])) == pmap([("a", "b")])
 
 
+def test_transform_keys_identity():
+    mp = pmap({'a': 1, 'b': 2, 'c': 3})
+    result = mp.transform_keys(lambda k: k)
+    assert result == mp
+
+
+def test_transform_keys_uppercase():
+    mp = pmap({'hello': 1, 'world': 2})
+    result = mp.transform_keys(lambda k: k.upper())
+    assert result['HELLO'] == 1
+    assert result['WORLD'] == 2
+    assert len(result) == 2
+
+
+def test_transform_keys_prefix():
+    mp = pmap({'x': 10, 'y': 20, 'z': 30})
+    result = mp.transform_keys(lambda k: 'key_' + k)
+    assert result['key_x'] == 10
+    assert result['key_y'] == 20
+    assert result['key_z'] == 30
+    assert len(result) == 3
+
+
+def test_transform_keys_numeric():
+    mp = pmap({1: 'a', 2: 'b', 3: 'c'})
+    result = mp.transform_keys(lambda k: k * 10)
+    assert result[10] == 'a'
+    assert result[20] == 'b'
+    assert result[30] == 'c'
+
+
+def test_transform_keys_preserves_values():
+    mp = pmap({'a': [1, 2], 'b': [3, 4]})
+    result = mp.transform_keys(lambda k: k)
+    assert result['a'] == [1, 2]
+    assert result['b'] == [3, 4]
+
+
+def test_transform_keys_empty():
+    mp = pmap()
+    result = mp.transform_keys(lambda k: k)
+    assert result == pmap()
+
+
 class BrokenPerson(namedtuple('Person', 'name')):
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.name == other.name

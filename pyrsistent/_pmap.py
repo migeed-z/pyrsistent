@@ -317,6 +317,44 @@ class PMap(Generic[KT, VT_co]):
         except KeyError:
             return self
 
+    def transform_keys(self, f):
+        """Return a new PMap with all keys transformed by applying f to each key.
+
+        If multiple original keys map to the same new key after transformation,
+        the value from the later encountered key (in iteration order) is kept.
+
+        >>> m1 = m(a=1, b=2)
+        >>> m1.transform_keys(str.upper)
+        pmap({'A': 1, 'B': 2})
+        """
+        if self._size == 0:
+            return self
+
+        new_size = max(8, 2 * self._size)
+        new_buckets_list = new_size * [None]
+        entry_count = 0
+
+        for old_k, v in self.iteritems():
+            new_k = f(old_k)
+            index = hash(old_k) % new_size
+            bucket = new_buckets_list[index]
+
+            if bucket:
+                replaced = False
+                for i, (existing_k, _) in enumerate(bucket):
+                    if existing_k == new_k:
+                        bucket[i] = (new_k, v)
+                        replaced = True
+                        break
+                if not replaced:
+                    bucket.append((new_k, v))
+                    entry_count += 1
+            else:
+                new_buckets_list[index] = [(new_k, v)]
+                entry_count += 1
+
+        return PMap(entry_count, pvector().extend(new_buckets_list))
+
     def update(self, *maps):
         """
         Return a new PMap with the items in Mappings inserted. If the same key is present in multiple
