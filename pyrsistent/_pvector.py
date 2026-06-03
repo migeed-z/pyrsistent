@@ -692,6 +692,11 @@ def python_pvector(iterable=()):
     """
     return _EMPTY_PVECTOR.extend(iterable)
 
+
+def compact_pvector(items):
+    """Build a compact PVector from a list, used by PMap.rebuild_compact."""
+    return python_pvector(list(reversed(items)))
+
 try:
     # Use the C extension as underlying trie implementation if it is available
     import os

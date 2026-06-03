@@ -612,6 +612,68 @@ def test_zip_with_excludes_self_only():
     assert 'c' not in result
 
 
+def test_invert_basic():
+    mp = pmap({'a': 1, 'b': 2, 'c': 3})
+    result = mp.invert()
+    assert result[1] == 'a'
+    assert result[2] == 'b'
+    assert result[3] == 'c'
+    assert len(result) == 3
+
+def test_invert_empty():
+    mp = pmap()
+    result = mp.invert()
+    assert result == pmap()
+
+def test_invert_single():
+    mp = pmap({42: 'hello'})
+    result = mp.invert()
+    assert result == pmap({'hello': 42})
+
+def test_invert_collision_last_wins():
+    mp = pmap({1: 'x', 2: 'x', 3: 'x'})
+    result = mp.invert()
+    assert len(result) == 1
+    assert 'x' in result
+    last_key = None
+    for k, v in mp.iteritems():
+        if v == 'x':
+            last_key = k
+    assert result['x'] == last_key
+
+def test_invert_collision_count():
+    mp = pmap({10: 'same', 20: 'same', 30: 'different'})
+    result = mp.invert()
+    assert len(result) == 2
+    assert 'different' in result
+    assert 'same' in result
+
+
+def test_rebuild_compact_preserves_entries():
+    m = pmap({i: i * 10 for i in range(50)})
+    compacted = m.rebuild_compact()
+    assert len(compacted) == 50
+    for i in range(50):
+        assert compacted[i] == i * 10
+
+def test_rebuild_compact_small():
+    m = pmap({'a': 1, 'b': 2})
+    compacted = m.rebuild_compact()
+    assert compacted == m
+
+def test_rebuild_compact_lookup():
+    m = pmap({'hello': 1, 'world': 2, 'foo': 3})
+    compacted = m.rebuild_compact()
+    assert compacted['hello'] == 1
+    assert compacted['world'] == 2
+    assert compacted['foo'] == 3
+
+def test_rebuild_compact_empty():
+    m = pmap()
+    compacted = m.rebuild_compact()
+    assert compacted == pmap()
+
+
 class BrokenPerson(namedtuple('Person', 'name')):
     def __eq__(self, other):
         return self.__class__ == other.__class__ and self.name == other.name

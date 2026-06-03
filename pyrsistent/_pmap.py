@@ -354,6 +354,43 @@ class PMap(Generic[KT, VT_co]):
             e.set(k, f(v, other_v))
         return e.persistent()
 
+    def invert(self):
+        """Return a new PMap with keys and values swapped.
+
+        If multiple keys map to the same value, the last key encountered
+        (in iteration order) becomes the value in the inverted map.
+
+        >>> m1 = m(a=1, b=2)
+        >>> m1.invert()
+        pmap({1: 'a', 2: 'b'})
+        """
+        result = {}
+        for k, v in self.iteritems():
+            if v not in result:
+                result[v] = k
+        return pmap(result)
+
+    def rebuild_compact(self):
+        """Return a new PMap with a compacted bucket vector.
+        Reduces memory usage by using a smaller bucket array sized to
+        the current number of entries.
+        """
+        from pyrsistent._pvector import compact_pvector
+
+        new_size = max(8, 2 * self._size)
+        new_buckets = new_size * [None]
+
+        for bucket in self._buckets:
+            if bucket:
+                for k, v in bucket:
+                    index = hash(k) % len(self._buckets)
+                    if new_buckets[index]:
+                        new_buckets[index].append((k, v))
+                    else:
+                        new_buckets[index] = [(k, v)]
+
+        return PMap(self._size, compact_pvector(new_buckets))
+
     def update(self, *maps):
         """
         Return a new PMap with the items in Mappings inserted. If the same key is present in multiple
